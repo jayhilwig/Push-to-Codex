@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Push — ChatGPT to Codex",
+  "version": "0.1.0",
+  "description": "Send a ChatGPT response or selection to Codex for Windows.",
+  "permissions": ["nativeMessaging", "storage"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [{
+    "matches": ["https://chatgpt.com/*"],
+    "js": ["markdown.js", "content.js"],
+    "css": ["push.css"],
+    "run_at": "document_idle"
+  }]
+}

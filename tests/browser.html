@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <title>Push browser checks</title>
+  <link rel="stylesheet" href="../extension/push.css">
+</head>
+<body>
+  <main id="conversation"></main>
+  <output id="result">Pending</output>
+  <template id="turn">
+    <div data-talvt-turn-state="streaming">
+      <div data-chatgpt-search-unit-key="fixture:user"><p>USER MESSAGE MUST STAY OUT</p></div>
+      <div data-chatgpt-search-unit-key="fixture:assistant">
+        <div data-response-body="fixture">
+          <h2>Markdown ☃</h2>
+          <p>Use <strong>this selection</strong> and <code>code</code>.</p>
+          <ul><li>First<ul><li>Nested</li></ul></li><li>Second</li></ul>
+          <div><header>Python<button aria-label="Copy">Copy</button></header><pre><code class="language-python">  print("héllo")
+    print("🌲")</code></pre></div>
+          <button>Do not include this control</button>
+        </div>
+      </div>
+      <div class="turn-action-controls" style="display: flex">
+        <div><button aria-label="Copy">Copy</button><button aria-label="Rate response">Rate response</button></div>
+      </div>
+    </div>
+  </template>
+  <script>
+    let changePreferences;
+    const preferences = () => ({ mode: "new", submit: true });
+    window.chrome.storage = {
+      local: { async get() { return { preferences: preferences() }; } },
+      onChanged: { addListener(listener) { changePreferences = listener; } }
+    };
+    const conversation = document.querySelector("#conversation");
+    const turn = () => {
+      const response = document.querySelector("#turn").content.firstElementChild.cloneNode(true);
+      conversation.append(response);
+      return response;
+    };
+    const response = turn();
+  </script>
+  <script src="../extension/markdown.js"></script>
+  <script src="../extension/content.js"></script>
+  <script>
+    const checks = [];
+    const check = (condition, name) => {
+      if (!condition) throw new Error(name);
+      checks.push(name);
+    };
+    const settle = () => new Promise(resolve => setTimeout(resolve, 100));
+    async function run() {
+      check(!response.querySelector(".push-main"), "streaming response excluded");
+      response.dataset.talvtTurnState = "complete";
+      await settle();
+      const body = response.querySelector("[data-response-body]");
+      const markdown = PushMarkdown.read(body);
+      check(markdown.includes("## Markdown ☃\n\nUse **this selection** and " + String.fromCharCode(96) + "code" + String.fromCharCode(96)), "heading, bold, inline code and Unicode");
+      check(markdown.includes("- First\n\n  - Nested\n- Second"), "nested lists");
+      const fence = String.fromCharCode(96).repeat(3);
+      check(markdown.includes(fence + 'python\n  print("héllo")\n    print("🌲")\n' + fence), "code fence, language and indentation");
+      check(!/USER MESSAGE|this control|Python|Copy/.test(markdown), "unrelated content and controls excluded");
+      const range = document.createRange();
+      range.setStart(body.querySelector("strong").firstChild, 5);
+      range.setEnd(body.querySelector("strong").firstChild, 14);
+      check(PushMarkdown.read(body, range) === "**selection**", "partial text selection");
+      const codeRange = document.createRange();
+      codeRange.setStart(body.querySelector("pre code").firstChild, 0);
+      codeRange.setEnd(body.querySelector("pre code").firstChild, 15);
+      check(PushMarkdown.read(body, codeRange).startsWith(fence + "python\n  print("), "selection inside a code block");
+      const long = document.createElement("div");
+      long.innerHTML = "<pre><code></code></pre>";
+      long.querySelector("code").textContent = (String.fromCharCode(96) + "x").repeat(140000);
+      check(PushMarkdown.read(long).length > 280000, "long prompt rendering");
+      const push = response.querySelector(".push-to-codex");
+      check(!!push && push.querySelector(".push-main").title === "Start new chat and submit prompt", "stored preferences loaded");
+      const [primary, chevron] = push.querySelector(".push-split").children;
+      check(primary.offsetHeight === 32 && chevron.offsetHeight === 32, "equal 32px segments");
+      const width = push.querySelector(".push-split").offsetWidth;
+      chevron.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+      const menu = push.querySelector(".push-menu");
+      check(!menu.hidden && document.activeElement.dataset.mode === "active", "keyboard opens options and focuses the first choice");
+      document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
+      check(document.activeElement.getAttribute("role") === "menuitemcheckbox", "keyboard navigates to the submit option");
+      document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      check(menu.hidden && document.activeElement === chevron, "Escape closes options and restores focus");
+      changePreferences({ preferences: { newValue: { mode: "active", submit: false } } }, "local");
+      check(primary.title === "Continue active chat with a prompt draft" &&
+        push.querySelector(".push-split").offsetWidth === width, "active mode and stable width");
+      check(getComputedStyle(push.querySelector(".push-menu")).backgroundColor === "rgb(255, 255, 255)", "light menu styles");
+      document.documentElement.dataset.theme = "dark";
+      check(getComputedStyle(push.querySelector(".push-menu")).backgroundColor === "rgb(38, 38, 38)", "dark menu styles");
+      for (let index = 0; index < 5; index++) response.querySelector(".turn-action-controls").append(document.createElement("i"));
+      await settle();
+      check(response.querySelectorAll(".push-to-codex").length === 1, "no duplicates after DOM updates");
+      conversation.replaceChildren();
+      const replacement = turn();
+      replacement.dataset.talvtTurnState = "complete";
+      await settle();
+      check(conversation.querySelectorAll(".push-to-codex").length === 1 && replacement.contains(conversation.querySelector(".push-main")), "new conversation mounts its own toolbar");
+      document.querySelector("#result").textContent = "PASS " + checks.length + ": " + checks.join(", ");
+    }
+    run().catch(error => { document.querySelector("#result").textContent = "FAIL " + error.message; });
+  </script>
+</body>
+</html>
