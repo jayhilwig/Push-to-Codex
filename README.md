@@ -2,6 +2,15 @@
 
 Push adds a split button to completed ChatGPT responses in Chrome on Windows 11. It transfers the selected text, or the full response, into the Codex desktop composer.
 
+<table>
+  <tr>
+    <td>
+      <img width="714" height="649" alt="push"
+        src="https://github.com/user-attachments/assets/b73ae10f-7385-44d1-8638-1572c67fa68a" />
+    </td>
+  </tr>
+</table>
+
 ## Install
 
 1. Install the [Codex desktop app](https://openai.com/codex/) and the [.NET 10 SDK for Windows](https://dotnet.microsoft.com/download/dotnet/10.0).
