@@ -20,6 +20,8 @@ Push adds a split button to completed ChatGPT responses in Chrome on Windows 11.
    ```powershell
    .\setup.ps1 -ExtensionId YOUR_EXTENSION_ID
    ```
+<img width="409" height="220" alt="p" src="https://github.com/user-attachments/assets/76434f5b-2e31-4c79-8ade-e3d24fb85cbe" />
+
 
 4. Refresh your ChatGPT tabs. After updating the source, reload Push in Chrome and rerun setup if the native helper changed. Rerun setup with the new ID if Chrome assigns one after you move the unpacked folder.
 
